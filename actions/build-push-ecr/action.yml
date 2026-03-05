@@ -1,0 +1,61 @@
+name: 'Build and Push to ECR'
+description: 'Build Docker image and push to AWS ECR using OIDC'
+
+inputs:
+  ecr-repository:
+    description: 'ECR repository name'
+    required: true
+  aws-role-arn:
+    description: 'IAM role ARN to assume (OIDC)'
+    required: true
+  aws-region:
+    description: 'AWS region for ECR'
+    required: false
+    default: 'us-east-1'
+  tag-with-sha:
+    description: 'Tag image with git SHA'
+    required: false
+    default: 'true'
+  tag-with-latest:
+    description: 'Tag image as latest'
+    required: false
+    default: 'true'
+
+outputs:
+  image-uri:
+    description: 'Full ECR image URI (with :latest or :sha)'
+    value: ${{ steps.ecr-login.outputs.registry }}/${{ inputs.ecr-repository }}:latest
+  registry:
+    description: 'ECR registry URL'
+    value: ${{ steps.ecr-login.outputs.registry }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Login to Amazon ECR
+      id: ecr-login
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build Docker image
+      run: |
+        REGISTRY="${{ steps.ecr-login.outputs.registry }}"
+        REPO="${{ inputs.ecr-repository }}"
+        TAGS=""
+        [ "${{ inputs.tag-with-latest }}" = "true" ] && TAGS="$TAGS -t ${REGISTRY}/${REPO}:latest"
+        [ "${{ inputs.tag-with-sha }}" = "true" ] && TAGS="$TAGS -t ${REGISTRY}/${REPO}:${{ github.sha }}"
+        docker build $TAGS .
+      shell: bash
+
+    - name: Push image to ECR
+      run: |
+        REGISTRY="${{ steps.ecr-login.outputs.registry }}"
+        REPO="${{ inputs.ecr-repository }}"
+        [ "${{ inputs.tag-with-latest }}" = "true" ] && docker push "${REGISTRY}/${REPO}:latest"
+        [ "${{ inputs.tag-with-sha }}" = "true" ] && docker push "${REGISTRY}/${REPO}:${{ github.sha }}"
+      shell: bash
