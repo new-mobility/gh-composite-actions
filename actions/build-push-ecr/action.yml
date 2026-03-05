@@ -46,9 +46,10 @@ runs:
       run: |
         REGISTRY="${{ steps.ecr-login.outputs.registry }}"
         REPO="${{ inputs.ecr-repository }}"
+        SHORT_SHA="${GITHUB_SHA:0:7}"
         TAGS=""
         [ "${{ inputs.tag-with-latest }}" = "true" ] && TAGS="$TAGS -t ${REGISTRY}/${REPO}:latest"
-        [ "${{ inputs.tag-with-sha }}" = "true" ] && TAGS="$TAGS -t ${REGISTRY}/${REPO}:${{ github.sha }}"
+        [ "${{ inputs.tag-with-sha }}" = "true" ] && TAGS="$TAGS -t ${REGISTRY}/${REPO}:${SHORT_SHA}"
         docker build $TAGS .
       shell: bash
 
@@ -56,6 +57,7 @@ runs:
       run: |
         REGISTRY="${{ steps.ecr-login.outputs.registry }}"
         REPO="${{ inputs.ecr-repository }}"
+        SHORT_SHA="${GITHUB_SHA:0:7}"
         [ "${{ inputs.tag-with-latest }}" = "true" ] && docker push "${REGISTRY}/${REPO}:latest"
-        [ "${{ inputs.tag-with-sha }}" = "true" ] && docker push "${REGISTRY}/${REPO}:${{ github.sha }}"
+        [ "${{ inputs.tag-with-sha }}" = "true" ] && docker push "${REGISTRY}/${REPO}:${SHORT_SHA}"
       shell: bash
