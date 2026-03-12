@@ -20,6 +20,14 @@ inputs:
     description: 'Tag image as latest'
     required: false
     default: 'true'
+  context-path:
+    description: 'Docker build context path (directory used as build context). Use when Dockerfile or sources are in a subdirectory.'
+    required: false
+    default: '.'
+  dockerfile-path:
+    description: 'Path to Dockerfile relative to repo root. If not set, uses context-path/Dockerfile.'
+    required: false
+    default: ''
 
 outputs:
   image-uri:
@@ -47,10 +55,16 @@ runs:
         REGISTRY="${{ steps.ecr-login.outputs.registry }}"
         REPO="${{ inputs.ecr-repository }}"
         SHORT_SHA="${GITHUB_SHA:0:7}"
+        CONTEXT_PATH="${{ inputs.context-path }}"
+        DOCKERFILE_PATH="${{ inputs.dockerfile-path }}"
         TAGS=""
         [ "${{ inputs.tag-with-latest }}" = "true" ] && TAGS="$TAGS -t ${REGISTRY}/${REPO}:latest"
         [ "${{ inputs.tag-with-sha }}" = "true" ] && TAGS="$TAGS -t ${REGISTRY}/${REPO}:${SHORT_SHA}"
-        docker build $TAGS .
+        if [ -n "$DOCKERFILE_PATH" ]; then
+          docker build $TAGS -f "$DOCKERFILE_PATH" "$CONTEXT_PATH"
+        else
+          docker build $TAGS "$CONTEXT_PATH"
+        fi
       shell: bash
 
     - name: Push image to ECR
